@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Console Repair Shop: Fix or Fail</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 90%;
+            width: 600px;
+            background-color: #2c2c2c;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            color: #ffcc00;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            font-size: 16px;
+            color: #cccccc;
+            margin-bottom: 20px;
+        }
+
+        pre {
+            background-color: #1a1a1a;
+            padding: 10px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            opacity: 0;
+            animation: fadeIn 1s forwards;
+        }
+
+        .ascii-console { color: #66ccff; }
+        .ascii-tool { color: #ffcc00; }
+        .ascii-error { color: #ff6666; }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .prompt {
+            font-size: 16px;
+            margin-bottom: 20px;
+            opacity: 0;
+            animation: fadeIn 1s forwards 0.5s;
+        }
+
+        .choices {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            background-color: #ffcc00;
+            color: #1a1a1a;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            width: 100%;
+            max-width: 300px;
+            animation: pulse 1s 5;
+        }
+
+        button:hover {
+            background-color: #e6b800;
+            transform: scale(1.05);
+        }
+
+        button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .ending {
+            font-size: 18px;
+            color: #ff6666;
+            margin-top: 20px;
+        }
+
+        .event-notification {
+            font-size: 14px;
+            color: #ff6666;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #2c2c2c;
+            border: 2px solid #ff6666;
+            border-radius: 5px;
+        }
+
+        .upgrade-shop {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #2c2c2c;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .upgrade-shop h2, .upgrade-shop h3 {
+            color: #ffcc00;
+            margin-bottom: 10px;
+        }
+
+        .upgrade-shop div {
+            margin-bottom: 15px;
+        }
+
+        .difficulty-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        #difficulty-selection {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        }
+
+        #difficulty-selection h2 {
+            color: #ffcc00;
+            margin-bottom: 20px;
+        }
+
+        #difficulty-selection button {
+            width: auto;
+            max-width: none;
+        }
+
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 20px;
+            }
+
+            .stats {
+                font-size: 14px;
+            }
+
+            pre {
+                font-size: 10px;
+            }
+
+            .prompt {
+                font-size: 14px;
+            }
+
+            button {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Console Repair Shop: Fix or Fail</h1>
+        <div class="stats" id="stats">Customers: 10 | Money: $100 | Satisfaction: 100% | Equipment: Basic</div>
+        <div id="game-content"></div>
+        <div id="event-notification" class="event-notification" style="display: none;"></div>
+        <div id="upgrade-shop" class="upgrade-shop">
+            <h2>Upgrade Shop</h2>
+            <div id="upgrade-categories"></div>
+            <button onclick="closeUpgradeShop()">Close</button>
+        </div>
+    </div>
+
+    <div id="difficulty-selection">
+		<h1>Welcome To Console Repair!</h1>
+        <h2>Choose Your Difficulty</h2>
+        <button onclick="startGame('easy')">Easy</button>
+        <button onclick="startGame('medium')">Medium</button>
+        <button onclick="startGame('hard')">Hard</button>
+    </div>
+
+    <script>
+ // Expanded console problems (already defined in previous steps)
+const consoleProblems = [
+    { id: 1, name: "Overheating", difficulty: 1, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Overheating |</span>
+   <span class="ascii-error">|  Fan Loud   |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 2, name: "Disc Drive Failure", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Disc Stuck  |</span>
+   <span class="ascii-error">|  Won't Read  |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 3, name: "HDMI Port Issue", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  No Signal   |</span>
+   <span class="ascii-error">|  HDMI Loose  |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 4, name: "Controller Drift", difficulty: 1, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Controller'.</span>
+   <span class="ascii-error">|  Stick Drifts |</span>
+   <span class="ascii-error">|  Unresponsive |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 5, name: "Power Supply Failure", difficulty: 3, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  No Power    |</span>
+   <span class="ascii-error">|  PSU Fault   |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 6, name: "Screen Glitches", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Flickering  |</span>
+   <span class="ascii-error">|  Distorted   |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 7, name: "Wi-Fi Connectivity Issue", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  No Wi-Fi    |</span>
+   <span class="ascii-error">|  Weak Signal |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 8, name: "Hard Drive Failure", difficulty: 3, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Data Loss   |</span>
+   <span class="ascii-error">|  HDD Fault   |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 9, name: "USB Port Failure", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  USB Fault   |</span>
+   <span class="ascii-error">|  No Charging |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 10, name: "Bluetooth Connectivity Issue", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  No Bluetooth |</span>
+   <span class="ascii-error">|  Pairing Fail |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 11, name: "Audio Output Failure", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  No Sound    |</span>
+   <span class="ascii-error">|  Audio Fault  |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 12, name: "System Software Crash", difficulty: 3, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  OS Crash    |</span>
+   <span class="ascii-error">|  Boot Failure |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 13, name: "Controller Button Stuck", difficulty: 1, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Controller'.</span>
+   <span class="ascii-error">|  Button Stuck |</span>
+   <span class="ascii-error">|  Unresponsive |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 14, name: "Overheating GPU", difficulty: 3, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  GPU Hot     |</span>
+   <span class="ascii-error">|  Crashes     |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 15, name: "Memory Card Failure", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Memory Fail  |</span>
+   <span class="ascii-error">|  Data Corrupt |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 16, name: "Fan Failure", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Fan Stopped  |</span>
+   <span class="ascii-error">|  Overheating  |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 17, name: "Power Button Failure", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  No Power On  |</span>
+   <span class="ascii-error">|  Button Fault |</span>
+<span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 18, name: "Charging Port Issue", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  No Charging |</span>
+   <span class="ascii-error">|  Port Fault  |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 19, name: "Screen Freeze", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Screen Freeze|</span>
+   <span class="ascii-error">|  Unresponsive |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 20, name: "Liquid Damage", difficulty: 3, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Water Damage |</span>
+   <span class="ascii-error">|  Short Circuit|</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 21, name: "Controller Battery Failure", difficulty: 1, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Controller'.</span>
+   <span class="ascii-error">|  No Charge   |</span>
+   <span class="ascii-error">|  Battery Dead |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 22, name: "Overheating CPU", difficulty: 3, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  CPU Hot     |</span>
+   <span class="ascii-error">|  Crashes     |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 23, name: "Disc Eject Failure", difficulty: 2, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  Disc Won't  |</span>
+   <span class="ascii-error">|  Eject       |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 24, name: "Network Card Failure", difficulty: 3, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Console  '.</span>
+   <span class="ascii-error">|  No Network  |</span>
+   <span class="ascii-error">|  Card Fault  |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` },
+    { id: 25, name: "Controller Trigger Issue", difficulty: 1, ascii: `
+   <span class="ascii-error">.-""""""""-.</span>
+   <span class="ascii-error">.'  Controller'.</span>
+   <span class="ascii-error">|  Trigger Stuck|</span>
+   <span class="ascii-error">|  Unresponsive |</span>
+   <span class="ascii-error">'.          .'</span>
+   <span class="ascii-error">'-......-'</span>
+    ` }
+];
+// Random events (5-10% chance per day)
+const randomEvents = [
+    {
+        id: 1,
+        name: "Delayed Repair Complaint",
+        description: "A customer complains about a repair taking too long.",
+        probability: 0.1,
+        impact: { customers: -1, satisfaction: -10, money: -20 },
+        resolution: "Offer a discount (-$20) or expedite repair."
+    },
+    {
+        id: 2,
+        name: "Incorrect Repair",
+        description: "A customer returns with the same issue after a repair.",
+        probability: 0.05,
+        impact: { customers: -1, satisfaction: -15, money: -50 },
+        resolution: "Fix the issue for free (requires parts and time)."
+    },
+    {
+        id: 3,
+        name: "Tool Breakdown",
+        description: "A repair tool breaks, delaying certain repairs.",
+        probability: 0.08,
+        impact: { money: -50 },
+        resolution: "Pay $50 to repair or replace the tool."
+    },
+    {
+        id: 4,
+        name: "Power Surge",
+        description: "A power surge damages diagnostic equipment.",
+        probability: 0.05,
+        impact: { money: -100 },
+        resolution: "Pay $100 to repair the equipment."
+    },
+    {
+        id: 5,
+        name: "Supplier Delay",
+        description: "A parts supplier delays delivery, delaying repairs.",
+        probability: 0.07,
+        impact: { customers: -1, satisfaction: -5 },
+        resolution: "Wait 2 days or switch to a better supplier (upgrade)."
+    }
+];
+
+// Disaster events (1-3% chance per day)
+const disasterEvents = [
+    {
+        id: 1,
+        name: "Water Pipe Burst",
+        description: "A water pipe bursts, flooding the shop and halting repairs for 3 days.",
+        probability: 0.02,
+        impact: { money: -500, customers: -2, satisfaction: -20 },
+        resolution: "Pay $500 for cleanup and repairs."
+    },
+        {
+        id: 2,
+        name: "Fire Outbreak",
+        description: "A fire breaks out, damaging the shop and halting repairs for 5 days.",
+        probability: 0.01,
+        impact: { money: -1000, customers: -3, satisfaction: -30 },
+        resolution: "Pay $1000 for cleanup and repairs."
+    },
+    {
+        id: 3,
+        name: "Burglary",
+        description: "Thieves steal customer consoles and shop equipment.",
+        probability: 0.015,
+        impact: { money: -300, customers: -2, satisfaction: -25 },
+        resolution: "Pay $300 to replace equipment + $200 per lost console (up to 3)."
+    },
+    {
+        id: 4,
+        name: "Lost Console",
+        description: "A customer's console is lost or misplaced.",
+        probability: 0.01,
+        impact: { money: -200, customers: -1, satisfaction: -15 },
+        resolution: "Pay $200 to compensate the customer."
+    }
+];
+
+// Upgrade shop items
+const upgrades = {
+    repairEfficiency: [
+        {
+            id: 1,
+            name: "Thermal Imaging Camera",
+            cost: 300,
+            description: "Speeds up overheating diagnosis by 50%.",
+            effect: { repairTime: -0.5, successRate: 0.1 },
+            purchased: false
+        },
+        {
+            id: 2,
+            name: "Advanced Diagnostic Display Tool",
+            cost: 400,
+            description: "Improves screen glitch diagnosis accuracy by 75%.",
+            effect: { successRate: 0.15 },
+            purchased: false
+        },
+        {
+            id: 3,
+            name: "Wi-Fi Signal Analyzer",
+            cost: 250,
+            description: "Speeds up Wi-Fi issue diagnosis by 50%.",
+            effect: { repairTime: -0.5, successRate: 0.1 },
+            purchased: false
+        },
+        {
+            id: 4,
+            name: "Firmware Update Software",
+            cost: 200,
+            description: "Allows firmware updates to fix software-related issues.",
+            effect: { successRate: 0.1, newRepairOption: true },
+            purchased: false
+        }
+    ],
+    costReduction: [
+        {
+            id: 1,
+            name: "Better Parts Supplier",
+            cost: 500,
+            description: "Reduces parts cost by 20%.",
+            effect: { partsCost: -0.2 },
+            purchased: false
+        },
+        {
+            id: 2,
+            name: "Durable Repair Tools",
+            cost: 300,
+            description: "Reduces tool breakdown chance by 50%.",
+            effect: { toolBreakdownChance: -0.5 },
+            purchased: false
+        },
+        {
+            id: 3,
+            name: "Surge Protectors",
+            cost: 150,
+            description: "Reduces power surge damage chance by 75%.",
+            effect: { powerSurgeChance: -0.75 },
+            purchased: false
+        }
+    ],
+    riskMitigation: [
+        {
+            id: 1,
+            name: "Improved Shop Plumbing",
+            cost: 400,
+            description: "Reduces water pipe burst chance by 75%.",
+            effect: { waterPipeBurstChance: -0.75 },
+            purchased: false
+        },
+        {
+            id: 2,
+            name: "Fire Safety System",
+            cost: 600,
+            description: "Reduces fire outbreak chance by 75%.",
+            effect: { fireOutbreakChance: -0.75 },
+            purchased: false
+        },
+        {
+            id: 3,
+            name: "Security Cameras and Alarms",
+            cost: 500,
+            description: "Reduces burglary chance by 75% and lost console chance by 50%.",
+            effect: { burglaryChance: -0.75, lostConsoleChance: -0.5 },
+            purchased: false
+        }
+    ],
+    customerAttraction: [
+        {
+            id: 1,
+            name: "Shop Advertising",
+            cost: 300,
+            description: "Increases customer traffic by 20%.",
+            effect: { customerTraffic: 0.2 },
+            purchased: false
+        },
+        {
+            id: 2,
+            name: "Express Repair Service",
+            cost: 400,
+            description: "Allows express repairs (50% faster, 20% higher cost).",
+            effect: { repairTime: -0.5, repairCost: 0.2 },
+            purchased: false
+        }
+    ]
+};
+
+
+// Game state variables
+let customers = 10;
+let money = 100;
+let satisfaction = 100; // Customer satisfaction (0-100%)
+let equipment = "basic";
+let gameOver = false;
+let currentProblem = consoleProblems[0];
+let purchasedUpgrades = []; // Track purchased upgrades
+let eventRisks = {
+    toolBreakdownChance: 0.08,
+    powerSurgeChance: 0.05,
+    waterPipeBurstChance: 0.02,
+    fireOutbreakChance: 0.01,
+    burglaryChance: 0.015,
+    lostConsoleChance: 0.01
+};
+
+// Equipment success rates
+const equipmentLevels = {
+    basic: { successRate: 0.5, cost: 0 },
+    advanced: { successRate: 0.7, cost: 200 },
+    expert: { successRate: 0.9, cost: 500 }
+};
+
+// Difficulty settings
+const difficultySettings = {
+    easy: {
+        startingMoney: 500,
+        customerLossPenalty: 2,
+        successRateModifier: 0.5
+    },
+    medium: {
+        startingMoney: 250,
+        customerLossPenalty: 5,
+        successRateModifier: 0
+    },
+    hard: {
+        startingMoney: 50,
+        customerLossPenalty: 15,
+        successRateModifier: -0.1
+    }
+};
+
+let currentDifficulty = 'medium'; // Default difficulty
+
+function updateStats() {
+    document.getElementById('stats').innerHTML = `
+        Customers: ${customers} | Money: $${money} | Satisfaction: ${satisfaction}% | Equipment: ${equipment}
+    `;
+}
+
+function triggerEvents() {
+    // Check for random events
+    randomEvents.forEach(event => {
+        let modifiedProbability = event.probability;
+        if (event.name === "Tool Breakdown" && purchasedUpgrades.includes("Durable Repair Tools")) {
+            modifiedProbability *= (1 - upgrades.costReduction.find(u => u.name === "Durable Repair Tools").effect.toolBreakdownChance);
+        } else if (event.name === "Power Surge" && purchasedUpgrades.includes("Surge Protectors")) {
+            modifiedProbability *= (1 - upgrades.costReduction.find(u => u.name === "Surge Protectors").effect.powerSurgeChance);
+        }
+
+        if (Math.random() < modifiedProbability) {
+            customers += event.impact.customers || 0;
+            satisfaction = Math.max(0, Math.min(100, satisfaction + (event.impact.satisfaction || 0)));
+            money += event.impact.money || 0;
+            showEventNotification(event);
+        }
+    });
+
+    // Check for disaster events (modified by upgrades)
+    disasterEvents.forEach(event => {
+        let modifiedProbability = event.probability;
+        if (event.name === "Water Pipe Burst" && purchasedUpgrades.includes("Improved Shop Plumbing")) {
+            modifiedProbability *= (1 - upgrades.riskMitigation.find(u => u.name === "Improved Shop Plumbing").effect.waterPipeBurstChance);
+        } else if (event.name === "Fire Outbreak" && purchasedUpgrades.includes("Fire Safety System")) {
+            modifiedProbability *= (1 - upgrades.riskMitigation.find(u => u.name === "Fire Safety System").effect.fireOutbreakChance);
+        } else if (event.name === "Burglary" && purchasedUpgrades.includes("Security Cameras and Alarms")) {
+            modifiedProbability *= (1 - upgrades.riskMitigation.find(u => u.name === "Security Cameras and Alarms").effect.burglaryChance);
+        } else if (event.name === "Lost Console" && purchasedUpgrades.includes("Security Cameras and Alarms")) {
+            modifiedProbability *= (1 - upgrades.riskMitigation.find(u => u.name === "Security Cameras and Alarms").effect.lostConsoleChance);
+        }
+
+        if (Math.random() < modifiedProbability) {
+            customers += event.impact.customers || 0;
+            satisfaction = Math.max(0, Math.min(100, satisfaction + (event.impact.satisfaction || 0)));
+            money += event.impact.money || 0;
+            showEventNotification(event);
+        }
+    });
+}
+
+function showEventNotification(event) {
+    const notification = document.getElementById('event-notification');
+    notification.innerHTML = `
+        ${event.name}
+
+        ${event.description}
+
+        ${event.resolution}
+    `;
+    notification.style.display = 'block';
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 5000); // Hide after 5 seconds
+}
+
+function openUpgradeShop() {
+    const shop = document.getElementById('upgrade-shop');
+    const categories = document.getElementById('upgrade-categories');
+    let shopHTML = '';
+
+    Object.keys(upgrades).forEach(category => {
+        shopHTML += `<h3>${category.replace(/([A-Z])/g, ' $1').toUpperCase()}</h3>`;
+        upgrades[category].forEach(upgrade => {
+            const isPurchased = purchasedUpgrades.includes(upgrade.name);
+            shopHTML += `
+                <div>
+<strong>${upgrade.name}</strong> ($${upgrade.cost})<br>
+                    ${upgrade.description}<br>
+                    <button ${isPurchased || money < upgrade.cost ? 'disabled' : ''} 
+                            onclick="purchaseUpgrade('${upgrade.name}', ${upgrade.cost}, '${category}')">
+                        ${isPurchased ? 'Purchased' : 'Buy'}
+                    </button>
+                </div>
+            `;
+        });
+    });
+
+    categories.innerHTML = shopHTML;
+    shop.style.display = 'block';
+}
+
+function closeUpgradeShop() {
+    document.getElementById('upgrade-shop').style.display = 'none';
+}
+
+function purchaseUpgrade(name, cost, category) {
+    if (money >= cost && !purchasedUpgrades.includes(name)) {
+        money -= cost;
+        purchasedUpgrades.push(name);
+        const upgrade = upgrades[category].find(u => u.name === name);
+        applyUpgradeEffect(upgrade);
+        updateStats();
+        openUpgradeShop(); // Refresh shop UI
+    }
+}
+
+function applyUpgradeEffect(upgrade) {
+    // Apply upgrade effects
+    if (upgrade.effect.repairTime) {
+        // Adjust repair time (implementation depends on repair mechanics)
+        // For simplicity, we'll assume repair time affects success rate
+    }
+    if (upgrade.effect.successRate) {
+        equipmentLevels[equipment].successRate += upgrade.effect.successRate;
+    }
+    if (upgrade.effect.partsCost) {
+        // Adjust parts cost (implementation depends on repair mechanics)
+    }
+    if (upgrade.effect.toolBreakdownChance) {
+        eventRisks.toolBreakdownChance *= (1 + upgrade.effect.toolBreakdownChance);
+    }
+    if (upgrade.effect.powerSurgeChance) {
+        eventRisks.powerSurgeChance *= (1 + upgrade.effect.powerSurgeChance);
+    }
+    if (upgrade.effect.waterPipeBurstChance) {
+        eventRisks.waterPipeBurstChance *= (1 + upgrade.effect.waterPipeBurstChance);
+    }
+    if (upgrade.effect.fireOutbreakChance) {
+        eventRisks.fireOutbreakChance *= (1 + upgrade.effect.fireOutbreakChance);
+    }
+    if (upgrade.effect.burglaryChance) {
+        eventRisks.burglaryChance *= (1 + upgrade.effect.burglaryChance);
+    }
+    if (upgrade.effect.lostConsoleChance) {
+        eventRisks.lostConsoleChance *= (1 + upgrade.effect.lostConsoleChance);
+    }
+    if (upgrade.effect.customerTraffic) {
+        customers = Math.round(customers * (1 + upgrade.effect.customerTraffic));
+    }
+    if (upgrade.effect.repairCost) {
+        // Adjust repair cost (implementation depends on repair mechanics)
+    }
+}
+
+function getRandomProblem() {
+    return consoleProblems[Math.floor(Math.random() * consoleProblems.length)];
+}
+
+// Move prompts array to global scope
+const prompts = [
+    {
+        text: `A customer brings in a console with ${currentProblem.name}. How do you fix it?`,
+        ascii: currentProblem.ascii,
+        choices: [
+            { text: "Clean and test thoroughly (safe).", outcome: { customers: 1, money: 20, success: true }, clue: "safe" },
+            { text: "Quick fix, skip testing (risky).", outcome: { customers: -1, money: 50, success: Math.random() > 0.3 }, clue: "risky" },
+            { text: "Replace parts (moderate).", outcome: { customers: 0, money: 30, success: Math.random() > 0.5 }, clue: "moderate" },
+            { text: "Open Upgrade Shop", outcome: { customers: 0, money: 0, success: true }, clue: "upgrade" }
+        ]
+    }
+];
+
+function displayPrompt() {
+    if (gameOver) return;
+    if (customers <= 0 || money < -500) {
+        gameOver = true;
+        document.getElementById('game-content').innerHTML = `
+            <div class="ending">Game Over: ${customers <= 0 ? 'You lost all customers' : 'You went bankrupt'} and went out of business!</div>
+            <button onclick="restartGame()">Restart Game</button>
+        `;
+        return;
+    }
+
+    currentProblem = getRandomProblem();
+    prompts[0].text = `A customer brings in a console with ${currentProblem.name}. How do you fix it?`;
+    prompts[0].ascii = currentProblem.ascii;
+
+    const content = document.getElementById('game-content');
+    let choicesHTML = '<div class="choices">';
+    prompts[0].choices.forEach(choice => {
+        choicesHTML += `<button class="choice-button" onclick="makeChoice('${choice.clue}')">${choice.text}</button>`;
+    });
+    choicesHTML += '</div>';
+
+    content.innerHTML = `
+        <pre>${prompts[0].ascii}</pre>
+        <div class="prompt">${prompts[0].text}</div>
+        ${choicesHTML}
+    `;
+    updateStats();
+    console.log("Prompt displayed, buttons rendered"); // Debugging log
+}
+
+function makeChoice(clue) {
+    console.log("Button clicked, clue:", clue); // Debugging log
+    if (gameOver) return;
+    const choice = prompts[0].choices.find(c => c.clue === clue);
+    if (!choice) {
+        console.error("Choice not found for clue:", clue); // Debugging log
+        return;
+    }
+
+    if (clue === "upgrade") {
+        console.log("Opening upgrade shop"); // Debugging log
+        openUpgradeShop();
+        return;
+    } else {
+        console.log("Processing repair choice, success rate:", equipmentLevels[equipment].successRate); // Debugging log
+        let successRate = equipmentLevels[equipment].successRate;
+        successRate += difficultySettings[currentDifficulty].successRateModifier; // Adjust for difficulty
+
+        const outcome = choice.outcome;
+        if (Math.random() < successRate) {
+            customers += outcome.customers;
+            money += outcome.money;
+            satisfaction = Math.max(0, Math.min(100, satisfaction + 5));
+        } else {
+            customers -= 1;
+            money -= 10;
+            satisfaction = Math.max(0, Math.min(100, satisfaction - difficultySettings[currentDifficulty].customerLossPenalty)); // Adjust penalty for difficulty
+        }
+        updateStats();
+        triggerEvents();
+        displayPrompt();
+    }
+}
+
+function restartGame() {
+    startGame(currentDifficulty); // Restart with the same difficulty
+}
+
+function startGame(difficulty) {
+    currentDifficulty = difficulty;
+    customers = 10;
+    money = difficultySettings[difficulty].startingMoney;
+    satisfaction = 100;
+    equipment = "basic";
+    gameOver = false;
+    currentProblem = consoleProblems[0];
+    equipmentLevels[equipment].successRate = 0.5;
+    purchasedUpgrades = [];
+    prompts[0].text = `A customer brings in a console with ${currentProblem.name}. How do you fix it?`;
+    prompts[0].ascii = currentProblem.ascii;
+    updateStats();
+    document.getElementById('difficulty-selection').style.display = 'none';
+    displayPrompt();
+}
+
+
+// Initial display (difficulty selection)
+    </script>
+</body>
+</html>
