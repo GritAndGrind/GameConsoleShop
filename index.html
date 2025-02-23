@@ -640,18 +640,18 @@ const equipmentLevels = {
 // Difficulty settings
 const difficultySettings = {
     easy: {
-        startingMoney: 500,
-        customerLossPenalty: 2,
+        startingMoney: 1000,
+        customerLossPenalty: 1,
         successRateModifier: 0.5
     },
     medium: {
-        startingMoney: 250,
-        customerLossPenalty: 5,
+        startingMoney: 500,
+        customerLossPenalty: 2,
         successRateModifier: 0
     },
     hard: {
-        startingMoney: 50,
-        customerLossPenalty: 15,
+        startingMoney: 200,
+        customerLossPenalty: 8,
         successRateModifier: -0.1
     }
 };
@@ -716,7 +716,7 @@ function showEventNotification(event) {
     notification.style.display = 'block';
     setTimeout(() => {
         notification.style.display = 'none';
-    }, 5000); // Hide after 5 seconds
+    }, 10000); // Hide after 5 seconds
 }
 
 function openUpgradeShop() {
@@ -808,9 +808,9 @@ const prompts = [
         text: `A customer brings in a console with ${currentProblem.name}. How do you fix it?`,
         ascii: currentProblem.ascii,
         choices: [
-            { text: "Clean and test thoroughly (safe).", outcome: { customers: 1, money: 20, success: true }, clue: "safe" },
-            { text: "Quick fix, skip testing (risky).", outcome: { customers: -1, money: 50, success: Math.random() > 0.3 }, clue: "risky" },
-            { text: "Replace parts (moderate).", outcome: { customers: 0, money: 30, success: Math.random() > 0.5 }, clue: "moderate" },
+            { text: "Clean and test thoroughly (safe).", outcome: { customers: 1, money: 50, success: true }, clue: "safe" },
+            { text: "Quick fix, skip testing (risky).", outcome: { customers: -1, money: 150, success: Math.random() > 0.2 }, clue: "risky" },
+            { text: "Replace parts (moderate).", outcome: { customers: 0, money: 100, success: Math.random() > 0.9 }, clue: "moderate" },
             { text: "Open Upgrade Shop", outcome: { customers: 0, money: 0, success: true }, clue: "upgrade" }
         ]
     }
@@ -895,7 +895,7 @@ function startGame(difficulty) {
     currentProblem = consoleProblems[0];
     equipmentLevels[equipment].successRate = 0.5;
     purchasedUpgrades = [];
-    prompts[0].text = `A customer brings in a console with ${currentProblem.name}. How do you fix it?`;
+    prompts[0].text = `A customer brings in a game console with ${currentProblem.name}. How do you fix it?`;
     prompts[0].ascii = currentProblem.ascii;
     updateStats();
     document.getElementById('difficulty-selection').style.display = 'none';
